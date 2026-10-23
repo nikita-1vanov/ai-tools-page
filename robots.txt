@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /drafts/
+Disallow: /reference/
+Disallow: /scripts/
+
+# Яндекс: адреса с метками — та же страница, склеивать с адресом без них
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&ysclid&gclid&fbclid
+
+Sitemap: https://tools.nikitaivanov.dev/sitemap.xml
