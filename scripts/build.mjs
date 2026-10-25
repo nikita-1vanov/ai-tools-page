@@ -21,8 +21,8 @@ let DATE = read('sitemap.xml').match(/<lastmod>([\d-]+)<\/lastmod>/)?.[1] || TOD
 
 // tools.js — обычный скрипт с const-объявлениями, достаём их через vm
 const ctx = vm.createContext({});
-vm.runInContext(`${readFileSync(join(ROOT, 'tools.js'), 'utf8')};this.SECTIONS=SECTIONS;this.PRICING=PRICING;this.I18N=I18N;`, ctx);
-const { SECTIONS, PRICING, I18N } = ctx;
+vm.runInContext(`${readFileSync(join(ROOT, 'tools.js'), 'utf8')};this.SECTIONS=SECTIONS;this.PRICING=PRICING;this.FILTERS=FILTERS;this.I18N=I18N;`, ctx);
+const { SECTIONS, PRICING, FILTERS, I18N } = ctx;
 
 const PAGES = {
   ru: { path: '/', file: 'index.html', base: '' },
@@ -32,9 +32,9 @@ const PAGES = {
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const host = url => new URL(url).hostname;
 
-// Фразы терминальной строки под знаком AI — одинаковые в RU и EN, идут по кругу
-const UNIQUE_TOOLS = new Set(SECTIONS.flatMap(s => s.tools.map(t => host(t.url)))).size;
-const TERM_LINES = ['> SYSTEM ONLINE', `> ${UNIQUE_TOOLS} TOOLS LOADED`, '> CHARGING NEURONS...', '> HUMAN DETECTED :)', '> READY TO CREATE'];
+// Фильтр FREE / NO VPN: у каждого сервиса должна быть запись в FILTERS, иначе он выпадет из фильтра незаметно
+const missing = [...new Set(SECTIONS.flatMap(s => s.tools.map(t => host(t.url))))].filter(h => !FILTERS[h]);
+if (missing.length) throw new Error(`Нет данных фильтра в FILTERS (tools.js): ${missing.join(', ')}`);
 
 // Логотипы. Если у сайта нет иконки, сервис фавиконок отвечает 404 и отдаёт заглушку-глобус —
 // такие сервисы сразу получают букву вместо картинки. Без сети проверка пропускается,
@@ -66,25 +66,36 @@ function pricing(tool, lang) {
   };
 }
 
+// Сколько иконок на странице полосы в HTML (2 ряда по 4). app.js перекладывает страницы под ширину экрана:
+// на узком десктопе 900–1099px — по 6 (2 ряда по 3)
+const PAGE_SIZE = 8;
+
 function section(sec, i, lang) {
   const side = i < 5 ? 'l' : 'r', row = i % 5 + 1;
   const name = t => (lang === 'en' && t.nameEn) || t.name;
   const items = sec.tools.map(t => {
-    const pr = pricing(t, lang), h = host(t.url);
+    const pr = pricing(t, lang), h = host(t.url), f = FILTERS[h];
     const logo = LOGOS[h] === 'none'
       ? `<span class="mono">${esc(monogram(name(t)))}</span>`
       : `<img src="${esc(favicon(h))}" alt="" width="28" height="28" referrerpolicy="no-referrer"${LOGOS[h] ? ' data-logo="ok"' : ''}>`;
     return `
-          <li><a class="tool" href="${esc(t.url)}" target="_blank" rel="noopener" data-desc="${esc(t[lang])}"${pr.attrs}>
+          <li><a class="tool" href="${esc(t.url)}" target="_blank" rel="noopener" data-desc="${esc(t[lang])}"${pr.attrs} data-match="${[f.free && 'free', f.noVpn && 'novpn'].filter(Boolean).join(' ')}">
             <span class="ico">${logo}</span>
             <span class="name">${esc(name(t))}</span><span class="sr-only"> — ${esc(t[lang])}${pr.text}</span>
           </a></li>`;
-  }).join('');
-  return `
+  });
+  const head = `
       <section class="sec ${side}${sec.accent ? ' amber' : ''}" data-row="${row}" style="grid-row:${row}" aria-labelledby="sec-${sec.id}">
-        <h2 class="tab" id="sec-${sec.id}">${esc(sec[lang])}</h2>
-        <div class="band"><ul class="icons">${items}
-        </ul></div>
+        <h2 class="tab" id="sec-${sec.id}">${esc(sec[lang])}</h2>`;
+  // Разметка листания есть у каждой полосы; стрелки и точки видны, только если страниц больше одной (класс paged)
+  const tr = I18N[lang], pages = [];
+  for (let k = 0; k < items.length; k += PAGE_SIZE) pages.push(items.slice(k, k + PAGE_SIZE).join(''));
+  const arrow = (dir, label, d) => `<button class="pg-arr ${dir}" type="button" aria-label="${esc(label)}"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="${d}"/></svg></button>`;
+  return `${head}
+        <div class="band${pages.length > 1 ? ' paged' : ''}"><div class="vp"><div class="track">${pages.map(p => `<ul class="icons">${p}
+        </ul>`).join('')}</div></div></div>
+        ${arrow('prev', tr.prevPage, 'M8 2L4 6l4 4')}${arrow('next', tr.nextPage, 'M4 2l4 4-4 4')}
+        <div class="dots" data-label="${esc(tr.page('%n'))}">${pages.map((_, k) => `<button type="button" aria-label="${esc(tr.page(k + 1))}"></button>`).join('')}</div>
       </section>`;
 }
 
@@ -179,8 +190,10 @@ function page(lang) {
       <div class="center">
         <div class="glow" aria-hidden="true"></div>
         <div class="mark" id="mark" aria-hidden="true">AI</div>
-        <p class="term" aria-hidden="true"><span id="term-text">${esc(TERM_LINES[0])}</span><span class="cur"></span></p>
-        <script type="application/json" id="term-lines">${JSON.stringify(TERM_LINES)}</script>
+        <div class="filters" id="filters" role="group" aria-label="${esc(t.filterLabel)}">
+          <button class="tg" type="button" data-f="free" aria-pressed="false" data-tip="FREE — ${esc(t.freeTip)}"><span class="sw" aria-hidden="true"></span>FREE<span class="sr-only"> — ${esc(t.freeTip)}</span></button>
+          <button class="tg" type="button" data-f="novpn" aria-pressed="false" data-tip="NO VPN — ${esc(t.noVpnTip)}"><span class="sw" aria-hidden="true"></span>NO VPN<span class="sr-only"> — ${esc(t.noVpnTip)}</span></button>
+        </div>
       </div>
       <svg class="fx" id="fx" aria-hidden="true">
         <defs>

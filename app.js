@@ -1,12 +1,11 @@
 // Каталог уже лежит в HTML (его генерирует scripts/build.mjs) — здесь только поведение:
-// терминальная строка, подсказки, клавиша закладки и анимация.
+// страницы в полосах, фильтр FREE / NO VPN, подсказки, клавиша закладки и анимация.
 (() => {
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const layout = document.getElementById('layout');
   const fx = document.getElementById('fx');
   const mark = document.getElementById('mark');
   const tip = document.getElementById('tip');
-  const termText = document.getElementById('term-text');
 
   const desktop = matchMedia('(min-width: 900px)');
   const canHover = matchMedia('(hover: hover)');
@@ -38,37 +37,163 @@
   // ⌘D на Mac, Ctrl+D на остальных системах
   if (!/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)) document.getElementById('bm-key').textContent = 'Ctrl+D';
 
-  // ---------- Терминальная строка ----------
+  // ---------- Страницы в полосе ----------
 
-  // Фраза печатается по буквам, держится, стирается — и следующая. При «уменьшить движение» стоит первая.
-  const wait = ms => new Promise(r => setTimeout(r, ms));
-  const termLines = JSON.parse(document.getElementById('term-lines').textContent);
-  // Ширина строки — по самой длинной фразе, чтобы текст рос слева направо, а не расползался от центра
-  function fixTermWidth() {
-    const term = termText.parentElement, current = termText.textContent;
-    term.style.width = '';
-    termText.textContent = termLines.reduce((a, b) => (b.length > a.length ? b : a));
-    term.style.width = `${Math.ceil(term.getBoundingClientRect().width)}px`;
-    termText.textContent = current;
-  }
-  fixTermWidth();
-  document.fonts.ready.then(fixTermWidth);
-  addEventListener('resize', fixTermWidth);
-  (async function type() {
-    for (let i = 0; ; i = (i + 1) % termLines.length) {
-      const line = termLines[i];
-      if (reducedMotion.matches) { termText.textContent = termLines[0]; await wait(1000); continue; }
-      for (let n = 2; n <= line.length; n++) { termText.textContent = line.slice(0, n); await wait(55); }
-      await wait(2500);
-      for (let n = line.length; n >= 2; n--) { termText.textContent = line.slice(0, n); await wait(25); }
-      await wait(300);
+  // На странице 8 сервисов (2 ряда по 4), на узком десктопе 900–1099px — 6 (2 ряда по 3).
+  // Всегда открывается первая страница, на последней листание останавливается.
+  // Десктоп: стрелки на рамке и точки. Телефон: свайп и точки, край следующей страницы выглядывает справа.
+  const narrow = matchMedia('(min-width: 900px) and (max-width: 1099px)');
+  const pageSize = () => (narrow.matches ? 6 : 8);
+
+  const pagers = [...layout.querySelectorAll('.sec')].map(sec => {
+    const band = sec.querySelector('.band'), vp = band.querySelector('.vp'), track = band.querySelector('.track');
+    const dotsBox = sec.querySelector('.dots'), items = [...track.querySelectorAll('li')];
+    const prev = sec.querySelector('.pg-arr.prev'), next = sec.querySelector('.pg-arr.next');
+    let pages = [...track.children], dots = [...dotsBox.children], cur = 0;
+
+    // Раскладываем сервисы по страницам нужного размера (сборка кладёт по 8)
+    function paginate() {
+      const size = pageSize();
+      if (pages.length === Math.ceil(items.length / size) && pages[0].children.length === Math.min(size, items.length)) return false;
+      pages = [];
+      for (let k = 0; k < items.length; k += size) {
+        const ul = document.createElement('ul');
+        ul.className = 'icons';
+        ul.append(...items.slice(k, k + size));
+        pages.push(ul);
+      }
+      track.replaceChildren(...pages);
+      dots = pages.map((_, k) => {
+        const d = document.createElement('button');
+        d.type = 'button';
+        d.setAttribute('aria-label', dotsBox.dataset.label.replace('%n', k + 1));
+        d.addEventListener('click', () => go(k));
+        return d;
+      });
+      dotsBox.replaceChildren(...dots);
+      band.classList.toggle('paged', pages.length > 1);
+      cur = 0;
+      return true;
     }
-  })();
+
+    // Сдвиг до страницы k в px; последняя прижимается к правому краю (на телефоне страница уже полосы)
+    const offset = k => Math.min(pages[k].offsetLeft - pages[0].offsetLeft, track.scrollWidth - vp.clientWidth);
+    function go(k) {
+      cur = Math.max(0, Math.min(pages.length - 1, k));
+      track.style.transform = `translateX(${-offset(cur)}px)`;
+      prev.disabled = cur === 0;
+      next.disabled = cur === pages.length - 1;
+      dots.forEach((d, j) => (j === cur ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current')));
+      vp.classList.toggle('end', cur === pages.length - 1);
+      hideTip();
+    }
+    prev.addEventListener('click', () => go(cur - 1));
+    next.addEventListener('click', () => go(cur + 1));
+    dots.forEach((d, j) => d.addEventListener('click', () => go(j)));
+    // Переход Tab-ом на сервис со скрытой страницы — показываем его страницу,
+    // а подсказку — когда лента доедет (go() её прячет, а на старом месте она встала бы мимо иконки)
+    track.addEventListener('focusin', e => {
+      const j = pages.findIndex(p => p.contains(e.target));
+      if (j === cur) return;
+      go(j);
+      const a = e.target.closest('.tool');
+      if (a) setTimeout(() => { if (document.activeElement === a) showTip(a); }, reducedMotion.matches ? 0 : 450);
+    });
+    // Листаем только сдвигом ленты. Браузер сам прокручивает обёртку к сфокусированной ссылке — сбрасываем,
+    // иначе прокрутка сложится со сдвигом и полоса покажет пустое место
+    vp.addEventListener('scroll', () => { vp.scrollLeft = 0; });
+
+    // Свайп пальцем: лента едет за пальцем, на краях — с сопротивлением; отпустили — доводим до страницы
+    let x0 = null, dx = 0, swipedAt = 0;
+    vp.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' || pages.length < 2) return;
+      x0 = e.clientX; dx = 0;
+      track.classList.add('drag');
+    });
+    vp.addEventListener('pointermove', e => {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      const edge = (cur === 0 && dx > 0) || (cur === pages.length - 1 && dx < 0);
+      track.style.transform = `translateX(${-offset(cur) + (edge ? dx / 3 : dx)}px)`;
+    });
+    vp.addEventListener('pointerup', () => {
+      if (x0 === null) return;
+      x0 = null;
+      track.classList.remove('drag');
+      if (Math.abs(dx) > 10) swipedAt = performance.now();
+      go(Math.abs(dx) > 40 ? cur + (dx < 0 ? 1 : -1) : cur);
+    });
+    // Браузер забрал жест себе (палец пошёл вертикально — прокрутка страницы): не листаем, возвращаем ленту
+    vp.addEventListener('pointercancel', () => {
+      if (x0 === null) return;
+      x0 = null;
+      track.classList.remove('drag');
+      go(cur);
+    });
+    // После свайпа палец отпускают над иконкой — это не нажатие. Только сразу после свайпа:
+    // нажатия с клавиатуры и скринридера позже не трогаем
+    vp.addEventListener('click', e => { if (performance.now() - swipedAt < 400) e.preventDefault(); }, true);
+
+    paginate();
+    go(0);
+    return {
+      // Ширина страницы зависит от экрана (на телефоне 86%), размер страницы — от узкого десктопа
+      relayout() { const rebuilt = paginate(); go(cur); return rebuilt; },
+      get pages() { return pages; },
+      get dots() { return dots; },
+    };
+  });
+  // Пересчёт — только при смене ширины (на телефоне адресная строка при прокрутке меняет лишь высоту) и не чаще раза за кадр.
+  // Страницы пересобраны — точки заново гасим по фильтру
+  let lastWidth = innerWidth, frame = 0;
+  addEventListener('resize', () => {
+    if (innerWidth === lastWidth || frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      lastWidth = innerWidth;
+      if (pagers.map(p => p.relayout()).some(Boolean)) applyFilters();
+    });
+  });
+
+  // ---------- Фильтр FREE / NO VPN ----------
+
+  // Неподходящие сервисы остаются на месте, тускнеют и не кликаются. Оба фильтра — условие «И».
+  // Выбор запоминается в браузере (без localStorage просто не запоминается).
+  const FILTER_KEY = 'ai-tools:filters';
+  const filterBtns = [...document.querySelectorAll('#filters [data-f]')];
+  let active = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTER_KEY));
+    if (Array.isArray(saved)) active = filterBtns.map(b => b.dataset.f).filter(f => saved.includes(f));
+  } catch {}
+
+  function applyFilters() {
+    filterBtns.forEach(b => b.setAttribute('aria-pressed', String(active.includes(b.dataset.f))));
+    tools.forEach(a => {
+      const tags = a.dataset.match.split(' ');
+      const off = !active.every(f => tags.includes(f));
+      a.classList.toggle('off', off);
+      if (off) { a.setAttribute('aria-disabled', 'true'); a.tabIndex = -1; }
+      else { a.removeAttribute('aria-disabled'); a.removeAttribute('tabindex'); }
+    });
+    // Точки страниц, где под фильтр ничего не подходит, гаснут
+    pagers.forEach(p => p.dots.forEach((d, j) => d.classList.toggle('empty', active.length > 0 && !p.pages[j].querySelector('.tool:not(.off)'))));
+  }
+  filterBtns.forEach(b => b.addEventListener('click', () => {
+    const f = b.dataset.f;
+    active = active.includes(f) ? active.filter(x => x !== f) : [...active, f];
+    try { localStorage.setItem(FILTER_KEY, JSON.stringify(active)); } catch {}
+    applyFilters();
+  }));
+  tools.forEach(a => a.addEventListener('click', e => { if (a.classList.contains('off')) e.preventDefault(); }));
+  applyFilters();
+
+  const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // ---------- Подсказка (только десктоп с мышью) ----------
 
   function showTip(a) {
-    if (!desktop.matches || !canHover.matches) return;
+    if (!desktop.matches || !canHover.matches || a.classList.contains('off')) return;
     const b = document.createElement('b');
     b.textContent = a.querySelector('.name').textContent;
     tip.replaceChildren(b, ` · ${a.dataset.desc}`);
