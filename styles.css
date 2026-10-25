@@ -106,19 +106,39 @@ h1 .acc { color: var(--cobalt-l); }
   55% { opacity: 1; } 58% { opacity: .3; } 62% { opacity: 1; }
 }
 
-/* ---------- Терминальная строка ---------- */
+/* ---------- Фильтр FREE / NO VPN: тумблеры под знаком AI ---------- */
 
-.term {
-  margin: 22px 0 0; white-space: nowrap; text-align: left;
-  font-family: "IBM Plex Mono", monospace; font-size: 14px; letter-spacing: .08em;
-  color: var(--cobalt-l); text-shadow: 0 0 8px rgba(140, 162, 255, .6);
+.filters { display: flex; gap: 22px; margin-top: 22px; }
+.tg {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 0;
+  background: none; border: 0; cursor: pointer; user-select: none; white-space: nowrap;
+  font: 500 12px "IBM Plex Mono", monospace; letter-spacing: .12em; color: var(--muted);
+  transition: color .2s;
 }
-.term .cur {
-  display: inline-block; width: .6em; height: 1.1em; vertical-align: -.2em; margin-left: 2px;
-  background: var(--cobalt-l); box-shadow: 0 0 8px rgba(140, 162, 255, .6);
-  animation: blink 1s steps(1) infinite;
+.tg .sw {
+  position: relative; width: 30px; height: 17px; border-radius: 999px; border: 1.5px solid #3A4152;
+  transition: border-color .2s, background-color .2s, box-shadow .2s;
 }
-@keyframes blink { 50% { opacity: 0; } }
+.tg .sw::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted); transition: transform .2s, background-color .2s;
+}
+.tg:hover, .tg:focus-visible { color: var(--cobalt-l); outline: none; }
+.tg:hover .sw, .tg:focus-visible .sw { border-color: var(--cobalt-l); }
+.tg[aria-pressed="true"] { color: var(--ink); }
+.tg[aria-pressed="true"] .sw { border-color: var(--cobalt-l); background-color: rgba(44, 75, 223, .45); box-shadow: 0 0 10px rgba(140, 162, 255, .6); }
+.tg[aria-pressed="true"] .sw::after { transform: translateX(13px); background: #fff; }
+
+/* Пояснение — при наведении, под тумблером, в стиле подсказок сервисов. Только компьютер с мышью */
+@media (hover: hover) and (min-width: 900px) {
+  .tg::after {
+    content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 10px); z-index: 20;
+    padding: 7px 11px; border-radius: 8px; border: 1px solid var(--cobalt-l); background: rgba(16, 19, 27, .96);
+    font: 12px/1.35 Inter, sans-serif; letter-spacing: 0; color: var(--ink); white-space: nowrap;
+    pointer-events: none; opacity: 0; transform: translate(-50%, -4px); transition: opacity .15s, transform .15s;
+  }
+  .tg:hover::after, .tg:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+}
 
 /* ---------- Полоса раздела ---------- */
 
@@ -161,6 +181,53 @@ h1 .acc { color: var(--cobalt-l); }
   100% { text-shadow: 0 0 4px var(--c), 0 0 12px var(--c), 0 0 24px var(--c); opacity: 1; }
 }
 
+/* ---------- Страницы в полосе (больше 8 сервисов) ---------- */
+
+/* Палец ведёт ленту по горизонтали, вертикальная прокрутка страницы остаётся за браузером */
+.vp { overflow: hidden; touch-action: pan-y; }
+/* Запас сверху и снизу: обводка, увеличение и свечение иконки при наведении выходят за круг — без запаса их срезает.
+   Сбоку не расширяем: там срез нужен, чтобы не было видно соседних страниц */
+.vp { padding-block: 12px; margin-block: -12px; }
+.track { display: flex; transition: transform .45s cubic-bezier(.3, .7, .2, 1); }
+.track.drag { transition: none; }
+.track > .icons { flex: 0 0 100%; align-content: start; }
+.band.paged { padding-bottom: 24px; }
+
+/* Одна страница — листать нечего */
+.sec:not(:has(.paged)) :is(.pg-arr, .dots) { display: none; }
+
+/* Стрелки сидят на боковых рамках, как таб на верхней */
+.pg-arr {
+  position: absolute; top: 50%; z-index: 4; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--bg); border: 1.5px solid var(--c); color: var(--c);
+  transition: color .2s, box-shadow .2s, opacity .2s;
+}
+.pg-arr.prev { left: 0; transform: translate(-50%, -50%); }
+.pg-arr.next { right: 0; transform: translate(50%, -50%); }
+.pg-arr svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pg-arr:hover:not(:disabled), .pg-arr:focus-visible { color: #fff; box-shadow: 0 0 12px var(--c); outline: none; }
+.pg-arr:disabled { opacity: .25; cursor: default; }
+
+/* Ряды 1 и 5 смыкаются в центре: полосе со стрелками нужен зазор, иначе стрелки соседей сойдутся вплотную */
+@media (min-width: 900px) {
+  .sec.l:is([data-row="1"], [data-row="5"]):has(.paged) { margin-right: 8px; }
+  .sec.r:is([data-row="1"], [data-row="5"]):has(.paged) { margin-left: 8px; }
+}
+
+/* Точки страниц — капсула на нижней рамке */
+.dots {
+  position: absolute; left: 50%; bottom: 0; z-index: 4; transform: translate(-50%, 50%);
+  display: flex; gap: 6px; padding: 5px 9px; background: var(--bg); border: 1.5px solid var(--c); border-radius: 999px;
+}
+.dots button {
+  width: 6px; height: 6px; padding: 0; border: 0; border-radius: 3px; cursor: pointer;
+  background: color-mix(in srgb, var(--c) 35%, transparent); transition: background-color .2s, box-shadow .2s, width .2s, opacity .2s;
+}
+.dots button[aria-current] { background: var(--c); box-shadow: 0 0 6px var(--c); }
+/* Включён фильтр: точки страниц без подходящих сервисов гаснут */
+.dots button.empty { opacity: .3; }
+
 /* ---------- Иконки ---------- */
 
 .icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; margin: 0; padding: 0; list-style: none; }
@@ -170,7 +237,7 @@ h1 .acc { color: var(--cobalt-l); }
   position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0;
   color: var(--ink); text-decoration: none; font-size: 12px; font-weight: 500; line-height: 1.2;
-  transition: opacity .25s;
+  transition: opacity .25s, filter .25s;
 }
 .tool .ico {
   width: 46px; height: 46px; border-radius: 50%; background: #fff;
@@ -188,6 +255,10 @@ h1 .acc { color: var(--cobalt-l); }
 .tool:hover .ico,
 .tool:focus-visible .ico { transform: scale(1.1); box-shadow: 0 0 0 2px var(--c), 0 0 18px var(--c); }
 .tool:focus-visible { outline: none; }
+
+/* Не подходит под фильтр: на месте, тусклый, без реакции на наведение */
+.tool.off { opacity: .16; filter: grayscale(1); cursor: default; }
+.tool.off:hover .ico { transform: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 60%, transparent); }
 
 /* ---------- Подсказка ---------- */
 
@@ -228,7 +299,7 @@ h1 .acc { color: var(--cobalt-l); }
   .bookmark { display: none; }
 }
 
-/* ---------- Узкий десктоп (900–1099px): та же лесенка, иконки 3×3 ---------- */
+/* ---------- Узкий десктоп (900–1099px): та же лесенка, иконки 2 ряда по 3 (по 6 на странице) ---------- */
 
 @media (min-width: 900px) and (max-width: 1099px) {
   .page { padding: 32px 24px 0; }
@@ -237,16 +308,13 @@ h1 .acc { color: var(--cobalt-l); }
   h1 { font-size: 34px; }
   .tagline { font-size: 16px; }
 
-  .layout { gap: 36px 8px; }
+  /* 16px между колонками — чтобы стрелка листания на рамке не наезжала на соседнюю полосу */
+  .layout { gap: 36px 16px; }
   .glow { width: 700px; height: 700px; }
   .mark { font-size: 130px; }
 
   .band { padding: 28px 6px 14px; }
-  /* 8 иконок в сетке 3×3: ряды 3 + 3 + 2, последние две по центру */
-  .icons { grid-template-columns: repeat(6, 1fr); gap: 14px 2px; }
-  .icons li { grid-column: span 2; }
-  .icons li:nth-child(7) { grid-column: 2 / 4; }
-  .icons li:nth-child(8) { grid-column: 4 / 6; }
+  .icons { grid-template-columns: repeat(3, 1fr); gap: 14px 2px; }
 }
 
 /* ---------- Мобильная версия (< 900px) ---------- */
@@ -264,10 +332,25 @@ h1 .acc { color: var(--cobalt-l); }
   .center { order: -1; padding: 30px 0 4px; }
   .glow { width: 420px; height: 420px; }
   .mark { font-size: 104px; }
-  .term { margin-top: 18px; font-size: 13px; }
+  /* M1: чипы вместо тумблеров, без пояснений */
+  .filters { gap: 8px; margin-top: 18px; }
+  .tg { font-size: 11px; border: 1px solid #3A4152; border-radius: 999px; padding: 6px 13px; transition: color .2s, border-color .2s, background-color .2s, box-shadow .2s; }
+  .tg .sw { display: none; }
+  .tg:hover, .tg:focus-visible { border-color: var(--cobalt-l); }
+  .tg[aria-pressed="true"] { color: #fff; border-color: var(--cobalt-l); background-color: rgba(44, 75, 223, .4); box-shadow: 0 0 10px rgba(140, 162, 255, .5); }
 
   .band { padding: 26px 8px 14px; }
+  .band.paged { padding-bottom: 24px; }
   .tab { font-size: 11px; padding: 4px 12px; }
+
+  /* P1-C: стрелок нет, справа выглядывает край следующей страницы, листание свайпом и точками */
+  .pg-arr { display: none; }
+  .sec:has(.paged) { margin-bottom: 8px; }
+  .track { gap: 10px; }
+  .paged .track > .icons { flex-basis: 86%; }
+  .paged .vp { -webkit-mask: linear-gradient(90deg, #000 80%, transparent); mask: linear-gradient(90deg, #000 80%, transparent); }
+  .paged .vp.end { -webkit-mask: linear-gradient(90deg, transparent, #000 20%); mask: linear-gradient(90deg, transparent, #000 20%); }
+  .dots button[aria-current] { width: 16px; }
   .icons { gap: 14px 4px; }
   .tool { font-size: 11px; }
   .tool .ico { width: 44px; height: 44px; }
@@ -279,7 +362,7 @@ h1 .acc { color: var(--cobalt-l); }
 /* ---------- Уменьшить движение ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .glow, .mark.flicker, .sec.hit .tab, .term .cur { animation: none; }
+  .glow, .mark.flicker, .sec.hit .tab { animation: none; }
   .glow { opacity: .85; }
-  .tool .ico, .lockup, .band, .tab { transition: none; }
+  .tool, .tool .ico, .lockup, .band, .tab, .tg, .tg .sw, .tg .sw::after, .tg::after, .track, .pg-arr, .dots button { transition: none; }
 }
