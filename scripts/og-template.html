@@ -5,8 +5,8 @@
 <title>OG</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Unbounded:wght@300;500;700&family=Schibsted+Grotesk:wght@700&family=IBM+Plex+Mono:wght@400&display=swap">
 <style>
-  /* Шаблон картинки превью 1200×630. Язык: ?lang=ru|en.
-     Рендер: открыть в браузере с окном 1200×630 и сделать скриншот в assets/og-<lang>.png */
+  /* Шаблон картинки превью 1200×630. Только RU (английская версия убрана 29.10.2026).
+     Рендер: открыть в браузере с окном 1200×630 и сделать скриншот в assets/og-ru.png */
   * { box-sizing: border-box; margin: 0; }
   html, body { width: 1200px; height: 630px; overflow: hidden; background: #0E1014; }
   .og { position: relative; width: 1200px; height: 630px; color: #E9EBF0; font-family: Unbounded, sans-serif; overflow: hidden; }
@@ -26,9 +26,8 @@
 <div class="og" id="og"></div>
 <script>
   const p = new URLSearchParams(location.search);
-  const lang = p.get('lang') || 'ru';
-  const T = { ru: { tag: 'Работай быстрее. Делай больше.' },
-              en: { tag: 'Work faster. Do more.' } }[lang];
+  // Подзаголовок — как в SITE.tagline (tools.js); число сервисов подставить вручную
+  const T = { tag: '138 нейросетей для текстов, картинок,<br>видео, работы, кода и учёбы' };
   const ni = s => `<svg width="${s}" height="${s}" viewBox="0 0 100 100"><g fill="currentColor"><rect x="6" y="8" width="16" height="84"/><polygon points="6,8 22,8 58,92 42,92"/><rect x="42" y="8" width="16" height="84"/><rect x="78" y="8" width="16" height="84"/></g></svg>`;
   const by = `<div class="by">${ni(30)}<div><div class="n">NIKITA IVANOV</div><div class="r">AI · ENGINEERING</div></div></div>`;
 
@@ -36,7 +35,7 @@
   const html = `<div class="glow" style="width:900px;height:900px;left:560px;top:-135px"></div>
         <div style="position:absolute;left:80px;top:150px;width:620px">
           <h1 style="font-size:66px">AI TOOLS:<br><span class="acc">BEST 2026</span></h1>
-          <div class="tag" style="font-size:24px;margin-top:28px">${T.tag}</div>
+          <div class="tag" style="font-size:20px;line-height:1.45;margin-top:26px;max-width:640px">${T.tag}</div>
         </div>
         <div class="mark" style="position:absolute;right:110px;top:180px;font-size:250px">AI</div>
         <div style="position:absolute;left:80px;bottom:60px">${by}</div>`;

@@ -1048,43 +1048,17 @@ const FILTERS = {
   'novelai.net': { free: false, noVpn: true }, // low: сведений о блоке РФ не найдено
 };
 
-const I18N = {
-  ru: {
-    title: 'AI Tools: Best 2026 — лучшие нейросети по категориям',
-    description: 'Работай быстрее. Делай больше. Лучшие ИИ-сервисы 2026 в 10 категориях — от чат-ботов до генерации видео и кода.',
-    ogAlt: 'AI TOOLS: BEST 2026 — работай быстрее, делай больше',
-    locale: 'ru_RU',
-    tagline: 'Работай быстрее. Делай больше.',
-    bookmarkBefore: 'Нажми',
-    bookmarkAfter: ', чтобы сохранить в закладки',
-    freeLabel: 'Бесплатно',
-    paidLabel: 'Платно',
-    from: price => `от ${price}/мес`,
-    once: price => `от ${price} разово`,
-    filterLabel: 'Фильтр сервисов',
-    freeTip: 'бесплатный тариф, не триал',
-    noVpnTip: 'открывается из России без VPN',
-    prevPage: 'Предыдущие сервисы',
-    nextPage: 'Следующие сервисы',
-    page: n => `Страница ${n}`,
-  },
-  en: {
-    title: 'AI Tools: Best 2026 — the best AI tools by category',
-    description: 'Work faster. Do more. The best AI tools of 2026 in 10 categories — from chatbots to video generation and coding.',
-    ogAlt: 'AI TOOLS: BEST 2026 — work faster, do more',
-    locale: 'en_US',
-    tagline: 'Work faster. Do more.',
-    bookmarkBefore: 'Press',
-    bookmarkAfter: ' to bookmark',
-    freeLabel: 'Free',
-    paidLabel: 'Paid',
-    from: price => `from ${price}/mo`,
-    once: price => `from ${price} one-time`,
-    filterLabel: 'Filter tools',
-    freeTip: 'a free plan, not a trial',
-    noVpnTip: 'opens from Russia without a VPN',
-    prevPage: 'Previous tools',
-    nextPage: 'Next tools',
-    page: n => `Page ${n}`,
-  },
+// Тексты и ссылки сайта. Сайт только на русском.
+const SITE = {
+  title: 'AI Tools: Best 2026 — нейросети для текстов, картинок, видео, кода и учёбы',
+  // {n} — число сервисов, подставляется при сборке
+  description: '{n} нейросетей по категориям: что бесплатно, сколько стоит и какие работают из России без VPN.',
+  tagline: '{n} нейросетей для текстов, картинок, видео, работы, кода и учёбы',
+  ogAlt: 'AI TOOLS: BEST 2026 — нейросети по категориям',
+  // Ссылки в подвале. Пусто — ссылка не показывается
+  channel: 'https://t.me/ByteShit',   // Telegram-канал
+  course: '',    // курс «ИИ для новичков»
+  author: '',    // подпись NI внизу: ссылка на сайт автора; пусто — не ссылка
+  // Прокси «форма → Telegram» (scripts/relay). Пусто — форма сообщит, что отправка не подключена
+  relayUrl: 'https://ai-tools-feedback.ai-tools-support.workers.dev',
 };
