@@ -11,3 +11,6 @@ TZ.md
 node_modules/
 .env
 *.log
+
+# Кэш wrangler (id аккаунта Cloudflare) — не для репозитория
+.wrangler/
